@@ -151,8 +151,8 @@ to do base-32 to base-58 conversions. If you see a string starting with ciq that
 In automated scenarios you'd probably want to run image2ipfs like this:
 ```bash
 $ docker built -t $TAG .
-$ docker save $TAG | image2ipfs -q -r my-gateway.local | tee pull-url.txt
-my-gw.local/ciq..../centos
+$ docker save $TAG | image2ipfs -q -r my-gateway.local:9090 | tee pull-url.txt
+my-gateway.local:9090/ciq..../centos
 ```
 
 `-r my-gateway.local` instructs image2ipfs what pull url to produce.
