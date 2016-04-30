@@ -1,7 +1,8 @@
 TAG ?= $(shell git describe --match 'v[0-9]*' --dirty='.m' --always)
-IMAGE ?= ipfs-registry
+IMAGE ?= headers-proxy
 CONT ?= $(IMAGE)
-IPFS_GATEWAY ?= http://localhost:9090
+IPFS ?= localhost:8080
+PORT ?= 9090
 
 build:
 	docker build -t $(IMAGE):$(TAG) .
@@ -26,6 +27,7 @@ logs:
 run: stop build
 	docker run -ti --name $(CONT) \
 		$(EXTRA_ARGS) \
+		-e PORT=$(PORT) \
+		-e IPFS=$(IPFS) \
 		--net=host \
-		-e IPFS_GATEWAY=$(IPFS_GATEWAY) \
 		$(IMAGE):latest
