@@ -102,37 +102,36 @@ Status: Downloaded newer image for centos:7
 
 $ docker save centos:7 | image2ipfs
 Saving stdin to temporary file
-Extracting to /tmp/tmpROz2O8
-Preparing image in /tmp/tmpBQASG0
+Extracting to /tmp/tmpPO9EY4
+Preparing image in /tmp/tmp9PvL_7
 	Processing centos@sha256:28e524afdd052cfa82227c67344c098aabcd51021dd1f3b0c71485abcdd78a86
 	No manifest.json found, will build one
-	Compressing layer /tmp/tmpROz2O8/28e524afdd052cfa82227c67344c098aabcd51021dd1f3b0c71485abcdd78a86/layer.tar
-	Compressing layer /tmp/tmpROz2O8/044c0f15c4d9a7499734b75b73ea5754ceb2c1c22e86d7eaa5ab8098b60c5267/layer.tar
-	Compressing layer /tmp/tmpROz2O8/2ebc6e0c744d13008fac31bfffae2ebdbb04acd1a90bf63466496cd856e19365/layer.tar
-	Compressing layer /tmp/tmpROz2O8/fa5be2806d4c9aa0f75001687087876e47bb45dc8afb61f0c0e46315500ee144/layer.tar
-
+	Compressing layer /tmp/tmpPO9EY4/28e524afdd052cfa82227c67344c098aabcd51021dd1f3b0c71485abcdd78a86/layer.tar
+	Compressing layer /tmp/tmpPO9EY4/044c0f15c4d9a7499734b75b73ea5754ceb2c1c22e86d7eaa5ab8098b60c5267/layer.tar
+	Compressing layer /tmp/tmpPO9EY4/2ebc6e0c744d13008fac31bfffae2ebdbb04acd1a90bf63466496cd856e19365/layer.tar
+	Compressing layer /tmp/tmpPO9EY4/fa5be2806d4c9aa0f75001687087876e47bb45dc8afb61f0c0e46315500ee144/layer.tar
 Image ready: QmRhKG1VGPqEt3cwbehHWroqjhbC1izFCC4wudaJjRgrAk
 	Browse image at http://localhost:8080/ipfs/QmRhKG1VGPqEt3cwbehHWroqjhbC1izFCC4wudaJjRgrAk
-	Dockerized hash 122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1
-	You can pull using localhost:5000/122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1/centos
-localhost:5000/122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1/centos
+	Dockerized hash ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi
+	You can pull using localhost:5000/ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi/centos
+localhost:5000/ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi/centos
 
 ```
 
 The last line is the most important (you can get only it by passing `-q` to image2ipfs). If you have the IPFS registry
 running you should be able to pull:
 ```bash
-$ docker pull localhost:5000/122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1/centos
+$ docker pull localhost:5000/ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi/centos
 Using default tag: latest
-latest: Pulling from 122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1/centos
+latest: Pulling from ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi/centos
 9b8de281c9e8: Pull complete
 aff4174d073b: Pull complete
 36b68a688647: Pull complete
 b624472cd074: Pull complete
 Digest: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-Status: Downloaded newer image for localhost:5000/122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1/centos:latest
+Status: Downloaded newer image for localhost:5000/ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi/centos:latest
 
-$ docker history localhost:5000/122031de4400a431ac98465c9600f13ea8087e896bd7227a3e6617489a9c095c38b1/centos
+$ docker history localhost:5000/ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi/centos
 IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
 b624472cd074        4 weeks ago         /bin/sh -c #(nop) CMD ["/bin/bash"]             0 B
 36b68a688647        4 weeks ago         /bin/sh -c #(nop) LABEL name=CentOS Base Imag   0 B
@@ -144,18 +143,20 @@ Depending on how you have started the ipfs-registry you'd be redirected to an IP
 will redirect to the ipfs daemon running locally (http://localhost:8080).
 
 
-But what is this "Dockerized hash 12203f2054184ef2f726c21538c28e1c14c36a6026e2087c2b6602816fadb95ecc9f" in the output?
+But what is this "Dockerized hash ciqddxseacsddleyizojmahrh2uaq7ujnplse6r6mylurgu4bfodrmi" in the output?
 Docker requires image names to be all lowercase which doesn't play nicely with base58-encoded binary. A dockerized IPFS hash
-is just a hex-encoding of the same binary value. This is the reason why the ipfs-registry is not a simple nginx+rewrite rules: you need
-to do base-16 to base-58 conversions.
+is just a base-32 of the same binary value. This is the reason why the ipfs-registry is not a simple nginx+rewrite rules: you need
+to do base-32 to base-58 conversions. If you see a string starting with ciq that's probably a dockerized ipfs hash.
 
 In automated scenarios you'd probably want to run image2ipfs like this:
-```
-docker built -t $TAG .
-docker save $TAG | image2ipfs -q | tee pull-url.txt
+```bash
+$ docker built -t $TAG .
+$ docker save $TAG | image2ipfs -q -r my-gateway.local | tee pull-url.txt
+my-gw.local/ciq..../centos
 ```
 
-Then distribute the pull-url.txt to downstream jobs that need to pull the image.
+`-r my-gateway.local` instructs image2ipfs what pull url to produce.
+Then you can distribute the pull-url.txt to downstream jobs that need to pull the image.
 
 # What's next
 Not sure. It would be great if an IPFS gateway could speak the Registry v2 protocol so you don't need to run a registry.

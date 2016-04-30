@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import argparse
-import binascii
+import base64
 import collections
 import gzip
 import hashlib
@@ -46,12 +46,16 @@ def main():
     command(args)
 
 
-def is_pipe(fileno):
-    mode = os.fstat(fileno).st_mode
+def is_pipe(fd):
+    """check if fd a pip: if input is a pipe tar cannot seek"""
+    mode = os.fstat(fd).st_mode
     return stat.S_ISFIFO(mode)
 
 
 def command(args):
+    if args.quiet:
+        defaults._VERBOSE = False
+
     if args.version:
         print(defaults.DEBUG_VERSION)
         return
@@ -69,9 +73,6 @@ def command(args):
     else:
         f = open(args.input)
 
-    if args.quiet:
-        defaults._VERBOSE = False
-
     temp = tempfile.mkdtemp()
     info("Extracting to " + temp)
     tar = tarfile.TarFile(fileobj=f)
@@ -87,6 +88,7 @@ def command(args):
 
 
 def build_missing_manifest(temp, name, image):
+    """produces an almost valid manifest.json. dockers < 1.0 don't produce a manifest.json"""
     first = {}
     first['Config'] = "NOT_USED"
     first['RepoTags'] = [name + ":latest"]
@@ -146,6 +148,7 @@ def process(temp):
 
 
 def make_v2_manifest(config, config_dest, manifest, temp, work):
+    """produce v2 manifest of type application/vnd.docker.distribution.manifest.v2+json"""
     v2manifest = prepare_v2_manifest(manifest, temp, os.path.join(work, 'blobs'))
     v2manifest['config']['digest'] = 'sha256:' + config[:-5]
     v2manifest['config']['size'] = file_size(config_dest)
@@ -153,11 +156,13 @@ def make_v2_manifest(config, config_dest, manifest, temp, work):
 
 
 def dockerize_hash(hash):
+    """base58 -> base32 conversion. strips padding"""
     bytes = base58.b58decode(hash)
-    return binascii.b2a_hex(bytes)
+    return base64.b32encode(bytes)[0:-1].lower()
 
 
 def add_ipfs(work, registry, image):
+    """invoke "ipfs -r" on work. No error checking. Returns a pullable string"""
     proc = subprocess.Popen(['ipfs', 'add', '-r', '-q', work], stdout=subprocess.PIPE)
     stdout = proc.communicate()[0]
     hash = ''
@@ -185,12 +190,14 @@ def add_ipfs(work, registry, image):
     print(pull)
 
 
-def history_as_string(path):
+def read_file(path):
+    """reads a file to string"""
     with open(path, 'r') as f:
         return f.read()
 
 
 def make_v1_manifest(name, mf, temp, blob_dir):
+    """produce v1 manifest"""
     res = collections.OrderedDict()
     res['schemaVersion'] = 1
     res['name'] = name
@@ -207,7 +214,7 @@ def make_v1_manifest(name, mf, temp, blob_dir):
         fsLayers.append(layer_record)
 
         hist_record = {}
-        hist_record['v1Compatibility'] = history_as_string(os.path.join(temp, layer).replace('/layer.tar', '/json'))
+        hist_record['v1Compatibility'] = read_file(os.path.join(temp, layer).replace('/layer.tar', '/json'))
         history.append(hist_record)
 
     return res
@@ -267,10 +274,12 @@ def sha256_file(filename, blocksize=16 * 1024):
 
 
 def pretty_json(obj):
+    """pretty-prints a jsn object"""
     return json.dumps(obj, indent=2)
 
 
 def to_json(*path):
+    """buils a full path and reads it as json"""
     with open(os.path.join(*path), 'r') as f:
         return json.load(f)
 

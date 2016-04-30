@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 
-import binascii
+import base64
 import os
 
 import base58
@@ -31,7 +31,7 @@ def hello():
 
 
 def ipfsy_digest(digest):
-    bytes = binascii.a2b_hex(digest)
+    bytes = base64.b32decode(digest.upper() + '=')
     return base58.b58encode(bytes)
 
 
