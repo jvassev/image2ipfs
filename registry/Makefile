@@ -1,7 +1,7 @@
 TAG ?= $(shell git describe --match 'v[0-9]*' --dirty='.m' --always)
 IMAGE ?= ipfs-registry
 CONT ?= $(IMAGE)
-IPFS_GATEWAY ?= http://localhost:9090
+IPFS_GATEWAY ?= http://localhost:8080
 
 build:
 	docker build -t $(IMAGE):$(TAG) .

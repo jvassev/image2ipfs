@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -45,13 +46,26 @@ def main():
     command(args)
 
 
+def is_pipe(fileno):
+    mode = os.fstat(fileno).st_mode
+    return stat.S_ISFIFO(mode)
+
+
 def command(args):
     if args.version:
         print(defaults.DEBUG_VERSION)
         return
 
-    if args.input == None:
-        error('Stdin not supported yet, must provide -i flag')
+    if args.input is None or args.input == '-':
+        if is_pipe(sys.stdin.fileno()):
+            info("Saving stdin to temporary file")
+            tmp = tempfile.mktemp()
+            f = open(tmp, 'w')
+            shutil.copyfileobj(sys.stdin, f)
+            f.close()
+            f = open(tmp, 'r')
+        else:
+            f = sys.stdin
     else:
         f = open(args.input)
 
@@ -70,6 +84,26 @@ def command(args):
         return
 
     add_ipfs(work, args.registry, image)
+
+
+def build_missing_manifest(temp, name, image):
+    first = {}
+    first['Config'] = "NOT_USED"
+    first['RepoTags'] = [name + ":latest"]
+    layers = []
+
+    cl = image
+    while True:
+        layers.append(cl + "/layer.tar")
+        desc = to_json(temp, cl, 'json')
+        if 'parent' in desc:
+            cl = desc['parent']
+        else:
+            break
+
+    first['Layers'] = list(reversed(layers))
+
+    return [first]
 
 
 def process(temp):
@@ -92,20 +126,30 @@ def process(temp):
     os.makedirs(os.path.join(work, 'manifests'))
     os.makedirs(os.path.join(work, 'blobs'))
 
-    manifest = to_json(temp, 'manifest.json')[0]
-    config = manifest['Config']
-    config_dest = os.path.join(work, 'blobs', 'sha256:' + config[:-5])
-    shutil.copyfile(os.path.join(temp, config), config_dest)
+    try:
+        manifest = to_json(temp, 'manifest.json')[0]
+        config = manifest['Config']
+        config_dest = os.path.join(work, 'blobs', 'sha256:' + config[:-5])
+        shutil.copyfile(os.path.join(temp, config), config_dest)
+    except IOError:
+        info('\tNo manifest.json found, will build one')
+        manifest = build_missing_manifest(temp, name, image)[0]
 
-    v2manifest = make_manifest(manifest, temp, os.path.join(work, 'blobs'))
-    v2manifest['config']['digest'] = 'sha256:' + config[:-5]
-    v2manifest['config']['size'] = file_size(config_dest)
+    # mf = make_v2_manifest(config, config_dest, manifest, temp, work)
+    mf = make_v1_manifest(name, manifest, temp, os.path.join(work, 'blobs'))
 
-    v2manifest_dest = os.path.join(work, 'manifests', 'latest')
-    with open(v2manifest_dest, 'w') as f:
-        f.write(pretty_json(v2manifest))
+    mf_dest = os.path.join(work, 'manifests', 'latest')
+    with open(mf_dest, 'w') as f:
+        f.write(pretty_json(mf))
 
     return root, name
+
+
+def make_v2_manifest(config, config_dest, manifest, temp, work):
+    v2manifest = prepare_v2_manifest(manifest, temp, os.path.join(work, 'blobs'))
+    v2manifest['config']['digest'] = 'sha256:' + config[:-5]
+    v2manifest['config']['size'] = file_size(config_dest)
+    return v2manifest
 
 
 def dockerize_hash(hash):
@@ -130,6 +174,7 @@ def add_ipfs(work, registry, image):
     hash = dockerize_hash(hash)
     info("\tDockerized hash " + hash)
 
+    # remove host/port/proto part from image name
     i = registry.find('//')
     if i >= 0:
         registry = registry[i + 2:]
@@ -140,7 +185,35 @@ def add_ipfs(work, registry, image):
     print(pull)
 
 
-def make_manifest(mf, temp, blob_dir):
+def history_as_string(path):
+    with open(path, 'r') as f:
+        return f.read()
+
+
+def make_v1_manifest(name, mf, temp, blob_dir):
+    res = collections.OrderedDict()
+    res['schemaVersion'] = 1
+    res['name'] = name
+    res['tag'] = 'latest'
+    res['architecture'] = 'amd64'
+    fsLayers = res['fsLayers'] = []
+    history = res['history'] = []
+    res['signatures'] = []
+
+    for layer in reversed(mf['Layers']):
+        layer_record = {}
+        size, digest = compress_layer(os.path.join(temp, layer), blob_dir)
+        layer_record['blobSum'] = 'sha256:' + digest
+        fsLayers.append(layer_record)
+
+        hist_record = {}
+        hist_record['v1Compatibility'] = history_as_string(os.path.join(temp, layer).replace('/layer.tar', '/json'))
+        history.append(hist_record)
+
+    return res
+
+
+def prepare_v2_manifest(mf, temp, blob_dir):
     res = collections.OrderedDict()
     res['schemaVersion'] = 2
     res['mediaType'] = 'application/vnd.docker.distribution.manifest.v2+json'
@@ -203,6 +276,7 @@ def to_json(*path):
 
 
 def simplify_name(name):
+    """Remove host/port part from an image name"""
     i = name.find('/')
     if i < 0:
         return name
