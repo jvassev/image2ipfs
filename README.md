@@ -2,7 +2,8 @@
 This project teaches Docker some IPFS. IPFS is a global, versioned, peer-to-peer filesystem. It combines good ideas from Git, BitTorrent, Kademlia, SFS, and the Web. It is like a single bittorrent swarm, exchanging git objects.
 [https://github.com/ipfs/go-ipfs]
 
-This projects is tested with docker-1.9.1 and ipfs-0.4.1. It is known not to work with docker-1.11.1
+This projects is tested with docker-1.9.1 and ipfs-0.4.1. It is known not to work with docker-1.11.1. However, image2ipfs
+works with image archives produced by all versions of docker.
 
 # How does it work?
 image2ipfs takes an image archive produced using `docker save`.
@@ -21,8 +22,8 @@ busybox
 
 But how do you get from something like QmQSF1oN4TXeU2kRvmjerEs62ZYfKPyRCqPvW1XTTc4fLS to a working `docker pull busybox`?
 
-The answer is simple: using a simple form of url rewriting. In the registry/ subdirectory on the project
-there is a simplistic Flask application that speaks the Registry v2 protocol but instead of serving the blobs and manifests it redirects
+The answer is simple: using url rewriting. In the `registry/` subdirectory of the project
+there is a trivial Flask application that speaks the Registry v2 protocol but instead of serving the blobs and manifests it redirects
 to an IPFS gateway of your choice.
 
 When pulling REPO:latest (with REPO=busybox in this example), Docker daemon will issue these requests:
@@ -33,7 +34,7 @@ GET /v2/REPO/blobs/sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe6
 GET /v2/REPO/blobs/sha256:193bda8d9ac77416619eb556391a9c5447adb2abf12aab515d1b0c754637eb80
 GET /v2/REPO/blobs/sha256:a1b1b81d3d1afdb8fe119b002318c12c20934713b9754a40f702adb18a2540b9
 ```
-So somehow you need encode the IPFS hash in `REPO`, then use it on the server to redirect to https://ipfs.io/ipfs/`HASH`/`NAME`/manifest/latest.
+So somehow you need encode the IPFS hash in `REPO`, then use it on the server to redirect to https://ipfs.io/ipfs/{HASH}/{NAME}/manifest/latest.
 See Section "Full demo" bellow
 
 
@@ -164,6 +165,12 @@ If the ipfs-registry understands the Accept header then it could serve the manif
 However, this requires changes to the ipfs gateway or running additional proxy on top of ipfs-gateway that takes care
 of serving the right content and the right Content-Type headers. For now you are limited to using version 1 manifests and
 docker-1.9.1.
+
+When an image exported and processed both v1 and v2 versions of the manifests can be easily produced. The ipfs-registry then can
+inspect the Accept header and redirect to either file. For this to work however, the manifests added to IPFS need the
+mimeType metadata too.
+
+The Dockerized hash can be shortened a bit if base-36 is used instead of base-16/hex.
 
 # FAQ
 > Why can't I use tags or references.
