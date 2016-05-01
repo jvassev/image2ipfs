@@ -60,6 +60,7 @@ def command(args):
         print(defaults.DEBUG_VERSION)
         return
 
+    tmp = None
     if args.input is None or args.input == '-':
         if is_pipe(sys.stdin.fileno()):
             info("Saving stdin to temporary file")
@@ -77,6 +78,10 @@ def command(args):
     info("Extracting to " + temp)
     tar = tarfile.TarFile(fileobj=f)
     tar.extractall(temp)
+
+    # delete temp file
+    if tmp:
+        os.unlink(tmp)
 
     work, image = process(temp)
 
@@ -108,6 +113,16 @@ def build_missing_manifest(temp, name, image):
     return [first]
 
 
+def build_missing_config(work, manifest):
+    res = collections.OrderedDict()
+    res['architecture'] = 'amd64'
+
+    write_pretty_json(res, work, 'missing.json')
+    h = sha256_file(os.path.join(work, 'missing.json'))
+    os.rename(os.path.join(work, 'missing.json'), os.path.join(work, h + '.json'))
+    return h + '.json'
+
+
 def process(temp):
     root = work = tempfile.mkdtemp()
     info('Preparing image in ' + work)
@@ -131,19 +146,19 @@ def process(temp):
     try:
         manifest = to_json(temp, 'manifest.json')[0]
         config = manifest['Config']
-        config_dest = os.path.join(work, 'blobs', 'sha256:' + config[:-5])
-        shutil.copyfile(os.path.join(temp, config), config_dest)
     except IOError:
-        info('\tNo manifest.json found, will build one')
+        info('\tWARNING: Image archive produced by docker < 1.10, there may be problems')
         manifest = build_missing_manifest(temp, name, image)[0]
+        config = build_missing_config(work, manifest)
 
-    # mf = make_v2_manifest(config, config_dest, manifest, temp, work)
+    config_dest = os.path.join(work, 'blobs', 'sha256:' + config[:-5])
+    shutil.copyfile(os.path.join(temp, config), config_dest)
+
+    mf = make_v2_manifest(config, config_dest, manifest, temp, work)
+    write_pretty_json(mf, work, 'manifests', 'latest-v2')
+
     mf = make_v1_manifest(name, manifest, temp, os.path.join(work, 'blobs'))
-
-    mf_dest = os.path.join(work, 'manifests', 'latest')
-    with open(mf_dest, 'w') as f:
-        f.write(pretty_json(mf))
-
+    write_pretty_json(mf, work, 'manifests', 'latest-v1')
     return root, name
 
 
@@ -155,36 +170,41 @@ def make_v2_manifest(config, config_dest, manifest, temp, work):
     return v2manifest
 
 
+def write_pretty_json(obj, *path):
+    with open(os.path.join(*path), 'w') as f:
+        f.write(pretty_json(obj))
+
+
 def dockerize_hash(hash):
     """base58 -> base32 conversion. strips padding"""
-    bytes = base58.b58decode(hash)
-    return base64.b32encode(bytes)[0:-1].lower()
+    byte_arr = base58.b58decode(hash)
+    return base64.b32encode(byte_arr)[0:-1].lower()
 
 
 def add_ipfs(work, registry, image):
     """invoke "ipfs -r" on work. No error checking. Returns a pullable string"""
     proc = subprocess.Popen(['ipfs', 'add', '-r', '-q', work], stdout=subprocess.PIPE)
     stdout = proc.communicate()[0]
-    hash = ''
+    h = ''
     for line in stdout.splitlines():
         if line != '':
-            hash = line
+            h = line
 
-    if registry[-1] != '/':
-        registry += '/'
+    info("Image ready: " + h)
+    info("\tBrowse image at http://localhost:8080/ipfs/" + h)
 
-    info("Image ready: " + hash)
-    info("\tBrowse image at http://localhost:8080/ipfs/" + hash)
-
-    hash = dockerize_hash(hash)
-    info("\tDockerized hash " + hash)
+    h = dockerize_hash(h)
+    info("\tDockerized hash " + h)
 
     # remove host/port/proto part from image name
     i = registry.find('//')
     if i >= 0:
         registry = registry[i + 2:]
 
-    pull = registry + hash + '/' + image
+    if registry[-1] != '/':
+        registry += '/'
+
+    pull = registry + h + '/' + image
     info("\tYou can pull using " + pull)
 
     print(pull)
