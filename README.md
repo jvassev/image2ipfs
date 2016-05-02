@@ -2,7 +2,7 @@
 This project teaches Docker some IPFS. IPFS is a global, versioned, peer-to-peer filesystem. It combines good ideas from Git, BitTorrent, Kademlia, SFS, and the Web. It is like a single bittorrent swarm, exchanging git objects.
 [https://github.com/ipfs/go-ipfs]
 
-This projects is tested with docker-1.9.1, docker-1.11.1 and ipfs-0.4.1. However, image2ipfs works best with image archives produced by docker > 1.10.
+image2ipfs works only with images prduced docker >= 1.10. On the bright side, all post-1.6 dockers can pull from an ipfs-registry.
 
 # How does it work?
 image2ipfs takes an image archive produced using `docker save`.
@@ -201,6 +201,7 @@ optional arguments:
 * 0.0.2: Works only with docker <= 1.9.1
 * 0.0.3: Dockerized hash produced using base-32 (used to be hex/base-16)
 * 0.0.4: Support for schema version 2 and docker > 1.10
+* 0.0.5: image2ipfs: stop handling archives produced by docker < 1.10, ipfs-registry can still work with all post-1.6.x dockers
 
 # FAQ
 > Why can't I use tags or references.
