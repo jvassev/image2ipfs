@@ -60,6 +60,14 @@ $ image2ipfs -v
 ```
 
 # Running the registry
+You can pull from dockerhub. The second command requires less configuration but is less flexible.
+```
+docker run -td --name ipfs-registry -e IPFS_GATEWAY=http://{public-ip}:8080 -p 5000:5000 jvassev/ipfs-registry
+
+docker run -td --name ipfs-registry -e IPFS_GATEWAY=http://localhost:8080 --net host jvassev/ipfs-registry
+```
+
+Or build from source:
 ```bash
 cd image2ipfs/registry
 make build run IPFS_GATEWAY=http://localhost:8080
@@ -102,7 +110,6 @@ Digest: sha256:b3da5267165bbaa9a75d8ee21a11728c6fba98c0944dfa28f15c092877bb4391
 Status: Downloaded newer image for centos:7
 
 $ docker save centos:7 | image2ipfs
-Saving stdin to temporary file
 Extracting to /tmp/tmpluDoZF
 Preparing image in /tmp/tmp3iBMaF
 	Processing centos@sha256:49dccac9d468cc1d3d9a3eafb835d79ed56b99c931ab232774d32b75d220d241
