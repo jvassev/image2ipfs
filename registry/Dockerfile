@@ -11,6 +11,8 @@ RUN yum install -y epel-release && \
 
 RUN pip install base58 flask
 
+RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
+	ln -sf /dev/stderr /var/log/nginx/error.log
 
 COPY wsgi.conf /
 COPY proxy.conf /
