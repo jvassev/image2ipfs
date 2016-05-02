@@ -6,14 +6,17 @@ ENTRYPOINT ["/start.sh"]
 
 
 RUN yum install -y epel-release && \
-    yum install -y python-pip nginx
+    yum install -y python-pip nginx uwsgi uwsgi-plugin-python
 
 
 RUN pip install base58 flask
 
 
-COPY app.py /
-COPY nginx.conf /
+COPY wsgi.conf /
 COPY proxy.conf /
+
 COPY start.sh /
+COPY nginx.conf /
+COPY app.py /
+
 

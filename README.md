@@ -172,6 +172,23 @@ Proxying small json documents is OK but if IPFS can store the mime-type of a fil
 
 The Dockerized hash can be shortened a bit if base-36 is used instead of base-32/hex.
 
+# Synopsis
+```
+usage: image2ipfs [-h] [--quiet] [--version] [--input INPUT] [--no-add]
+                  [--registry REGISTRY]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --quiet, -q           produce less output
+  --version, -v         prints version
+  --input INPUT, -i INPUT
+                        Docker image archive to process, defaults to stdin
+  --no-add, -n          Don`t add to IPFS, just print directory
+  --registry REGISTRY, -r REGISTRY
+                        Registry to use when generating pull URL
+
+```
+
 # Changelog
 * 0.0.1: Broken, doesn't work
 * 0.0.2: Works only with docker <= 1.9.1

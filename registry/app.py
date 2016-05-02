@@ -54,6 +54,7 @@ def content(digest, path):
     if path.endswith('/latest'):
         # a request for a manifest
         accepts = request.headers.getlist('accept')
+        print accepts
         suf = '-v1'
 
         # docker > 1.10, prefer v2 schema
@@ -68,7 +69,7 @@ def content(digest, path):
     h = ipfsy_digest(digest)
 
     if suf != '':
-        # manifest request, redirect to self just to be able to to set the content type
+        # manifest request, redirect to self just to be able to set the content type
         location = '/ipfs/' + h + '/' + path + suf
     else:
         # blob request,

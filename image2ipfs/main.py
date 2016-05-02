@@ -22,7 +22,6 @@ import hashlib
 import json
 import os
 import shutil
-import stat
 import subprocess
 import sys
 import tarfile
@@ -35,21 +34,16 @@ import defaults
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--quiet', '-q', help='Produce less output', action='store_true', default=False)
-    parser.add_argument('--version', '-v', help='Prints version', action='store_true')
-    parser.add_argument('--input', '-i', help='Docker image archive, defaults to stdin', default=None)
+    parser.add_argument('--quiet', '-q', help='produce less output', action='store_true', default=False)
+    parser.add_argument('--version', '-v', help='prints version', action='store_true')
+    parser.add_argument('--input', '-i', help='Docker image archive to process, defaults to stdin. Use - for stdin',
+                        default=None)
     parser.add_argument('--no-add', '-n', help='Don`t add to IPFS, just print directory', action='store_true')
     parser.add_argument('--registry', '-r', help='Registry to use when generating pull URL',
                         default='http://localhost:5000')
 
     args = parser.parse_args()
     command(args)
-
-
-def is_pipe(fd):
-    """check if fd a pip: if input is a pipe tar cannot seek"""
-    mode = os.fstat(fd).st_mode
-    return stat.S_ISFIFO(mode)
 
 
 def command(args):
@@ -60,28 +54,15 @@ def command(args):
         print(defaults.DEBUG_VERSION)
         return
 
-    tmp = None
     if args.input is None or args.input == '-':
-        if is_pipe(sys.stdin.fileno()):
-            info("Saving stdin to temporary file")
-            tmp = tempfile.mktemp()
-            f = open(tmp, 'w')
-            shutil.copyfileobj(sys.stdin, f)
-            f.close()
-            f = open(tmp, 'r')
-        else:
-            f = sys.stdin
+        f = sys.stdin
     else:
         f = open(args.input)
 
     temp = tempfile.mkdtemp()
     info("Extracting to " + temp)
-    tar = tarfile.TarFile(fileobj=f)
+    tar = tarfile.open(fileobj=f, mode='r|*')
     tar.extractall(temp)
-
-    # delete temp file
-    if tmp:
-        os.unlink(tmp)
 
     work, image = process(temp)
 
