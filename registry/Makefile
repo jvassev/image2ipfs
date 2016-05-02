@@ -1,6 +1,7 @@
 TAG ?= $(shell git describe --match 'v[0-9]*' --dirty='.m' --always)
 IMAGE ?= ipfs-registry
 CONT ?= $(IMAGE)
+REMOTE = jvassev
 IPFS_GATEWAY ?= http://localhost:8080
 
 build:
