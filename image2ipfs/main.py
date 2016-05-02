@@ -73,37 +73,6 @@ def command(args):
     add_ipfs(work, args.registry, image)
 
 
-def build_missing_manifest(temp, name, image):
-    """produces an almost valid manifest.json. dockers < 1.0 don't produce a manifest.json"""
-    first = {}
-    first['Config'] = "NOT_USED"
-    first['RepoTags'] = [name + ":latest"]
-    layers = []
-
-    cl = image
-    while True:
-        layers.append(cl + "/layer.tar")
-        desc = to_json(temp, cl, 'json')
-        if 'parent' in desc:
-            cl = desc['parent']
-        else:
-            break
-
-    first['Layers'] = list(reversed(layers))
-
-    return [first]
-
-
-def build_missing_config(work, manifest):
-    res = collections.OrderedDict()
-    res['architecture'] = 'amd64'
-
-    write_pretty_json(res, work, 'missing.json')
-    h = sha256_file(os.path.join(work, 'missing.json'))
-    os.rename(os.path.join(work, 'missing.json'), os.path.join(work, h + '.json'))
-    return h + '.json'
-
-
 def process(temp):
     root = work = tempfile.mkdtemp()
     info('Preparing image in ' + work)
@@ -128,9 +97,7 @@ def process(temp):
         manifest = to_json(temp, 'manifest.json')[0]
         config = manifest['Config']
     except IOError:
-        info('\tWARNING: Image archive produced by docker < 1.10, there may be problems')
-        manifest = build_missing_manifest(temp, name, image)[0]
-        config = build_missing_config(work, manifest)
+        error('Image archive must be produced by docker > 1.10')
 
     config_dest = os.path.join(work, 'blobs', 'sha256:' + config[:-5])
     shutil.copyfile(os.path.join(temp, config), config_dest)
