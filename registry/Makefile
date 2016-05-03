@@ -2,6 +2,7 @@ TAG ?= $(shell git describe --match 'v[0-9]*' --dirty='.m' --always)
 IMAGE ?= ipfs-registry
 CONT ?= $(IMAGE)
 REMOTE = jvassev
+EXTRA ?=
 IPFS_GATEWAY ?= http://localhost:8080
 
 build:
@@ -29,4 +30,7 @@ run: stop build
 		$(EXTRA_ARGS) \
 		--net=host \
 		-e IPFS_GATEWAY=$(IPFS_GATEWAY) \
+		-e HTTPS_CERT=$(HTTPS_CERT) \
+		-e HTTPS_KEY=$(HTTPS_KEY) \
+		$(EXTRA) \
 		$(IMAGE):latest

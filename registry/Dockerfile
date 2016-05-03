@@ -16,6 +16,8 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
 
 COPY wsgi.conf /
 COPY proxy.conf /
+COPY locations.conf /
+COPY https.conf /
 
 COPY start.sh /
 COPY nginx.conf /
