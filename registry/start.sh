@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/dumb-init /bin/bash
 
 IPFS=${IPFS_GATEWAY%%/}
 
