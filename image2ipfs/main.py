@@ -34,11 +34,14 @@ import defaults
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--quiet', '-q', help='produce less output', action='store_true', default=False)
-    parser.add_argument('--version', '-v', help='prints version', action='store_true')
+    parser.add_argument('--quiet', '-q', help='produce less output',
+                        action='store_true', default=False)
+    parser.add_argument('--version', '-v',
+                        help='prints version', action='store_true')
     parser.add_argument('--input', '-i', help='Docker image archive to process, defaults to stdin. Use - for stdin',
                         default=None)
-    parser.add_argument('--no-add', '-n', help='Don`t add to IPFS, just print directory', action='store_true')
+    parser.add_argument(
+        '--no-add', '-n', help='Don`t add to IPFS, just print directory', action='store_true')
     parser.add_argument('--registry', '-r', help='Registry to use when generating pull URL',
                         default='http://localhost:5000')
 
@@ -55,6 +58,8 @@ def command(args):
         return
 
     if args.input is None or args.input == '-':
+        if sys.stdin.isatty():
+            error("error: input is terminal")
         f = sys.stdin
     else:
         f = open(args.input)
@@ -71,6 +76,16 @@ def command(args):
         return
 
     add_ipfs(work, args.registry, image)
+
+    try:
+        shutil.rmtree(temp)
+    except OSError:
+        pass
+
+    try:
+        shutil.rmtree(work)
+    except OSError:
+        pass
 
 
 def process(temp):
@@ -112,7 +127,8 @@ def process(temp):
 
 def make_v2_manifest(config, config_dest, manifest, temp, work):
     """produce v2 manifest of type application/vnd.docker.distribution.manifest.v2+json"""
-    v2manifest = prepare_v2_manifest(manifest, temp, os.path.join(work, 'blobs'))
+    v2manifest = prepare_v2_manifest(
+        manifest, temp, os.path.join(work, 'blobs'))
     v2manifest['config']['digest'] = 'sha256:' + config[:-5]
     v2manifest['config']['size'] = file_size(config_dest)
     return v2manifest
@@ -131,7 +147,8 @@ def dockerize_hash(hash):
 
 def add_ipfs(work, registry, image):
     """invoke "ipfs -r" on work. No error checking. Returns a pullable string"""
-    proc = subprocess.Popen(['ipfs', 'add', '-r', '-q', work], stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        ['ipfs', 'add', '-r', '-q', work], stdout=subprocess.PIPE)
     stdout = proc.communicate()[0]
     h = ''
     for line in stdout.splitlines():
@@ -182,7 +199,8 @@ def make_v1_manifest(name, mf, temp, blob_dir):
         fsLayers.append(layer_record)
 
         hist_record = {}
-        hist_record['v1Compatibility'] = read_file(os.path.join(temp, layer).replace('/layer.tar', '/json'))
+        hist_record['v1Compatibility'] = read_file(
+            os.path.join(temp, layer).replace('/layer.tar', '/json'))
         history.append(hist_record)
 
     return res
@@ -220,7 +238,7 @@ def compress_layer(path, blob_dir):
         with open(temp, 'wb') as f_out:
             # produce deterministic gzip files
             gz = gzip.GzipFile(filename='', mode='wb', fileobj=f_out, mtime=0)
-            gz.writelines(f_in)
+            gz.write(f_in)
             gz.close()
 
     digest = sha256_file(temp)
@@ -242,7 +260,7 @@ def sha256_file(filename, blocksize=16 * 1024):
 
 
 def pretty_json(obj):
-    """pretty-prints a jsn object"""
+    """pretty-prints a jsonn object"""
     return json.dumps(obj, indent=2)
 
 

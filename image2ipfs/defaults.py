@@ -13,7 +13,7 @@
 
 import os
 
-VERSION='0.0.5'
+VERSION='0.0.6'
 
 _VERBOSE=True
 

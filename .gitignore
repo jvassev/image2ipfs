@@ -1,5 +1,6 @@
 dist/
 data/
+.history/
 build/
 *.egg-info
 *.pyc
