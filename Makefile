@@ -37,9 +37,8 @@ build-image:
 shell:
 	docker run --rm -ti -u root -v `pwd`:/workspace --entrypoint=/bin/sh $(IMAGE)
 
-push-image: build
-	docker tag $(IMAGE):$(TAG) $(REMOTE)/$(IMAGE):$(TAG)
-	docker push $(REMOTE)/$(IMAGE):$(TAG)
+push-image: build-image
+	docker push $(IMAGE):$(TAG)
 
 attach:
 	@docker exec -ti $(CONT)  /bin/bash

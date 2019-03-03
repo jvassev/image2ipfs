@@ -238,7 +238,7 @@ def compress_layer(path, blob_dir):
         with open(temp, 'wb') as f_out:
             # produce deterministic gzip files
             gz = gzip.GzipFile(filename='', mode='wb', fileobj=f_out, mtime=0)
-            gz.write(f_in)
+            gz.writelines(f_in)
             gz.close()
 
     digest = sha256_file(temp)

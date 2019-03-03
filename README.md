@@ -1,14 +1,15 @@
 # Introduction
-This project teaches Docker some IPFS. IPFS is a global, versioned, peer-to-peer filesystem. It combines good ideas from Git, BitTorrent, Kademlia, SFS, and the Web. It is like a single bittorrent swarm, exchanging git objects.
+This project teaches Docker some IPFS. IPFS is a global, versioned, peer-to-peer filesystem. IPFS combines good ideas from Git, BitTorrent, Kademlia, SFS, and the Web. It is like a single bittorrent swarm, exchanging git objects.
 [https://github.com/ipfs/go-ipfs]
 
 image2ipfs works only with images prduced docker >= 1.10. On the bright side, all post-1.6 dockers can pull from an ipfs-registry.
 
 # How does it work?
+
 image2ipfs takes an image archive produced using `docker save`.
 The archive is extracted to a temp location then processed a bit. Finally, it is added to IPFS using `ipfs add -r`
 (you need to have the ipfs binary in your `PATH`). For a simple busybox image
-image2ipfs will produce something like this:
+image2ipfs will produce a work dir like this:
 ```
 busybox
 ├── blobs
@@ -16,14 +17,14 @@ busybox
 │   ├── sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe65c35f149eb
 │   └── sha256:a1b1b81d3d1afdb8fe119b002318c12c20934713b9754a40f702adb18a2540b9
 └── manifests
-    ├── latest-v1
     └── latest-v2
 ```
 
+_v1 Manifests are not supported starting with version 0.0.6_
 But how do you get from something like QmQSF1oN4TXeU2kRvmjerEs62ZYfKPyRCqPvW1XTTc4fLS to a working `docker pull busybox`?
 
 The answer is simple: using url rewriting. In the `registry/` subdirectory of the project
-there is a trivial Flask application that speaks the Registry v2 protocol but instead of serving the blobs and manifests it redirects
+there is a trivial Go application that speaks the Registry v2 protocol but instead of serving the blobs and manifests it redirects
 to an IPFS gateway of your choice.
 
 When pulling REPO:latest (with REPO=busybox in this example), Docker daemon will issue these requests:
@@ -34,9 +35,14 @@ GET /v2/REPO/blobs/sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe6
 GET /v2/REPO/blobs/sha256:193bda8d9ac77416619eb556391a9c5447adb2abf12aab515d1b0c754637eb80
 GET /v2/REPO/blobs/sha256:a1b1b81d3d1afdb8fe119b002318c12c20934713b9754a40f702adb18a2540b9
 ```
-So somehow you need encode the IPFS hash in `REPO`, then use it on the server to redirect to https://ipfs.io/ipfs/{HASH}/{NAME}/manifest/latest-v1.
-See Section "Demo" bellow for how this plays.
 
+All the Go app does is produce IPFS links to a an IPFS gateway and redirect docker there:
+```
+GET /ipfs/HASH/manifest/latest
+GET /ipfs/HASH/blobs/sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe65c35f149eb
+GET /ipfs/HASH/blobs/sha256:193bda8d9ac77416619eb556391a9c5447adb2abf12aab515d1b0c754637eb80
+GET /ipfs/HASH/blobs/sha256:a1b1b81d3d1afdb8fe119b002318c12c20934713b9754a40f702adb18a2540b9
+```
 
 
 # Installation
@@ -48,33 +54,35 @@ $ cd image2ipfs
 $ make install
 
 $ image2ipfs -v
-0.0.4
+0.0.6
 ```
 
-If someone else will be running an ipfs-registry then you can install image2ipfs using pip
+You can also install using pip
 ```bash
 $ pip install image2ipfs
 
 $ image2ipfs -v
-
+0.0.6
 ```
 
 # Running the registry
-You can pull from dockerhub. The second command requires less configuration but is less flexible.
-```
-docker run -td --name ipfs-registry -e IPFS_GATEWAY=http://{public-ip}:8080 -p 5000:5000 jvassev/ipfs-registry
+You can pull the official image from dockerhub. This example assumes the gateway is running on localhost. Consider using another gateway address as image2ipfs will serve redirects to it.
 
+```
 docker run -td --name ipfs-registry -e IPFS_GATEWAY=http://localhost:8080 --net host jvassev/ipfs-registry
 ```
 
 Or build from source:
 ```bash
-cd image2ipfs/registry
-make build run IPFS_GATEWAY=http://localhost:8080
+# build image locally
+make build-image
+
+# or install to $GOPATH/bin
+make install
 ```
-This will start a flask application pretending to be a docker registry on http://localhost:5000
 
 # Configure Docker
+
 As usual add `--insecure-registry localhost:5000` to your docker daemon args
 
 # Demo
@@ -98,7 +106,7 @@ Server:
  OS/Arch:      linux/amd64
 
 $ image2ipfs -v
-0.0.4
+0.0.6
 
 $ docker pull centos:7
 7: Pulling from library/centos
@@ -143,15 +151,14 @@ Status: Image is up to date for localhost:5000/ciqn5zu57ciucp3gw2hwxymuwz3tgjlvf
 
 $ docker history localhost:5000/ciqn5zu57ciucp3gw2hwxymuwz3tgjlvfdfwg3xhwx456y4xxydkhmq/centos
 IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
-778a53015523        4 weeks ago         /bin/sh -c #(nop) CMD ["/bin/bash"]             0 B                 
-<missing>           4 weeks ago         /bin/sh -c #(nop) LABEL name=CentOS Base Imag   0 B                 
-<missing>           4 weeks ago         /bin/sh -c #(nop) ADD file:6dd89087d4d418ca0c   196.7 MB            
-<missing>           7 months ago        /bin/sh -c #(nop) MAINTAINER The CentOS Proje   0 B 
+778a53015523        4 weeks ago         /bin/sh -c #(nop) CMD ["/bin/bash"]             0 B
+<missing>           4 weeks ago         /bin/sh -c #(nop) LABEL name=CentOS Base Imag   0 B
+<missing>           4 weeks ago         /bin/sh -c #(nop) ADD file:6dd89087d4d418ca0c   196.7 MB
+<missing>           7 months ago        /bin/sh -c #(nop) MAINTAINER The CentOS Proje   0 B
 ```
 
 Depending on how you have started the ipfs-registry the docker daemon will be redirected to an IPFS gateway of your choice. By default the registry
 will redirect to the ipfs daemon running locally (http://localhost:8080).
-
 
 But what is this "Dockerized hash ciqn5zu57ciucp3gw2hwxymuwz3tgjlvfdfwg3xhwx456y4xxydkhmq" in the output?
 Docker requires image names to be all lowercase which doesn't play nicely with base58-encoded binary. A dockerized IPFS hash
@@ -161,25 +168,23 @@ to do base-32 to base-58 conversions. If you see a string starting with `ciq` th
 
 In automated scenarios you'd probably want to run image2ipfs like this:
 ```bash
-$ docker built -t $TAG .
+
+# build whatever images
+$ docker built -t $TAG ...
 $ docker save $TAG | image2ipfs -q -r my-gateway.local:9090 | tee pull-url.txt
 my-gateway.local:9090/ciq..../centos
 ```
 
-`-r my-gateway.local` instructs image2ipfs what pull url to produce.
-Then you can distribute the pull-url.txt to downstream jobs that need to pull the image.
+`-r my-gateway.local` instructs image2ipfs what pull url to produce. In a CI/CD you can distribute this generated url to downstream jobs that need to pull it.
 
 # What's next
-Not sure. It would be great if an IPFS gateway could speak the Registry v2 protocol  at /v2/* so you don't need to run a registry.
 
-When an image exported and processed both v1 and v2 versions of the manifests are produced. v1 manifest are not thoroughly tested though.
-The flask app reads the `Accepts` header and redirects to either latest-v1 or latest-v2. But the redirection is not to
-the IPFS gateway but to the same service which acts as a proxy just so that it can set the 'Content-type' header.
-Proxying small json documents is OK but if IPFS can store the mime-type of a file then even the manifests can directly be served by a gateway
+Not sure. It would be great if an IPFS gateway could speak the Registry v2 protocol  at /v2/* so you don't need to run a registry.
 
 The Dockerized hash can be shortened a bit if base-36 is used instead of base-32/hex.
 
 # Synopsis
+
 ```
 usage: image2ipfs [-h] [--quiet] [--version] [--input INPUT] [--no-add]
                   [--registry REGISTRY]
@@ -197,15 +202,18 @@ optional arguments:
 ```
 
 # Changelog
+
 * 0.0.1: Broken, doesn't work
 * 0.0.2: Works only with docker <= 1.9.1
 * 0.0.3: Dockerized hash produced using base-32 (used to be hex/base-16)
 * 0.0.4: Support for schema version 2 and docker > 1.10
 * 0.0.5: image2ipfs: stop handling archives produced by docker < 1.10, ipfs-registry can still work with all post-1.6.x dockers
+* 0.0.6: Deprecate manifest v1. Rewrite image2ipfs-server in golang
 
 # FAQ
+
 > Why can't I use tags or references.
 
 The tag is always "latest". The "real" reference is encoded in the name of the image, that is, the "dockerized hash". Even
-if you export myimage:my-tag, in the ipfs registry you get just tag "latest" but an image like 9a3eafb835d79e/myimage:latest.
-This is very similar to how gx and gx-go works [https://github.com/whyrusleeping/gx].
+if you export myimage:my-tag, in the IPFS registry you always tag "latest" but an image like ciq9a3eafb835d79e/myimage:latest.
+This is very similar to how gx and gx-go work [https://github.com/whyrusleeping/gx].
