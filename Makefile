@@ -45,7 +45,7 @@ attach:
 	@docker exec -ti $(CONT)  /bin/bash
 
 guess-tag:
-	echo TAG=`git describe --match 'v[0-9]*' --dirty='.m' --always`
+	@echo TAG=`git describe --match 'v[0-9]*' --dirty='.m' --always`
 
 install-server:
 	CGO_ENABLED=0 go install github.com/jvassev/image2ipfs/image2ipfs-server
