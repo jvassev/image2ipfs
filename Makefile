@@ -1,55 +1,57 @@
 TAG               ?= latest
 IMAGE             ?= jvassev/ipfs-registry
 DOCKER_BUILD_ARGS ?=
+PKG               := github.com/jvassev/image2ipfs
+IPFS_GATEWAY      ?= http://localhost:8080
 
-IPFS_GATEWAY ?= http://localhost:8080
-
-dist: version
-	python setup.py sdist
-
-lint:
-	cd image2ipfs && pylint --rcfile pylint.rc *.py
+VERSION           := 0.1.0
+GIT_VERSION       ?= $(shell git rev-parse HEAD)
+LDFLAGS           := -X github.com/jvassev/image2ipfs/util.Version=$(VERSION)/$(GIT_VERSION) -w -s
 
 test:
-	cd image2ipfs && python -m unittest discover
+	go test -v $(PKG)
 
+install: test
+	CGO_ENABLED=0 go install -v -ldflags "$(LDFLAGS)" $(PKG)
 
-clean:
-	rm -fr image2ipfs/*.pyc
-	rm -fr dist/ build/ *.egg-info
+build-image: test
+	CGO_ENABLED=0 docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE):$(TAG) --build-arg GIT_VERSION=$(GIT_VERSION) .
 
-install: clean version
-	python setup.py install
-	image2ipfs --version
-
-version:
-	@git describe --match 'v[0-9]*' --dirty='.m' --always > image2ipfs/git-revision
-	@cat image2ipfs/git-revision
-
-upload: clean
-	python setup.py sdist upload
-
-
-build-image:
-	docker build $(DOCKER_BUILD_ARGS) -t $(IMAGE):$(TAG) -f image2ipfs-server/Dockerfile .
-	docker tag    $(IMAGE):$(TAG) $(IMAGE):latest
+nested-build: test
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go install -v -ldflags "$(LDFLAGS)" $(PKG)
 
 shell:
-	docker run --rm -ti -u root -v `pwd`:/workspace --entrypoint=/bin/sh $(IMAGE)
+	docker run --rm -ti -u root -v `pwd`:/workspace --entrypoint=/bin/sh $(IMAGE):$(TAG)
 
 push-image: build-image
 	docker push $(IMAGE):$(TAG)
 
-attach:
-	@docker exec -ti $(CONT)  /bin/bash
-
 guess-tag:
 	@echo TAG=`git describe --match 'v[0-9]*' --dirty='.m' --always`
-
-install-server:
-	CGO_ENABLED=0 go install github.com/jvassev/image2ipfs/image2ipfs-server
 
 run-server: build-image
 	docker run -ti --rm \
 		--net=host \
 		$(IMAGE):$(TAG)
+
+clean:
+	rm -fr dist
+
+dist: clean test dist-linux dist-mac dist-win
+
+dist-linux:
+	@mkdir -p dist
+	GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -o dist/image2ipfs -v -ldflags "$(LDFLAGS)" $(PKG)
+	gzip -S -$(VERSION)_amd64_linux.gz dist/image2ipfs
+
+dist-mac:
+	@mkdir -p dist
+	GOARCH=amd64 GOOS=darwin CGO_ENABLED=0 go build -o dist/image2ipfs -v -ldflags "$(LDFLAGS)" $(PKG)
+	gzip -S -$(VERSION)_amd64_darwin.gz dist/image2ipfs
+
+dist-win:
+	@mkdir -p dist
+	GOARCH=amd64 GOOS=windows CGO_ENABLED=0 go build -o dist/image2ipfs.exe -v -ldflags "$(LDFLAGS)" $(PKG)
+	gzip -cvf dist/image2ipfs.exe > dist/image2ipfs-$(VERSION)_amd64_windows.gz
+	rm dist/image2ipfs.exe
+

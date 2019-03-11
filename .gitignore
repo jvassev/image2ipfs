@@ -6,4 +6,5 @@ build/
 *.pyc
 .idea/
 *.iml
+.vscode/
 image2ipfs/git-revision
